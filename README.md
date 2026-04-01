@@ -81,6 +81,7 @@ docker run -p 5000:5000 -e OPENAI_API_KEY=your-key paper2agent
 | GET    | `/api/workflows`  | List indexed documents                   |
 | POST   | `/api/search`     | Semantic search over the knowledge base  |
 | POST   | `/api/index`      | Add a document to the knowledge base     |
+| POST   | `/graphql`        | GraphQL endpoint (queries + mutations)   |
 | GET    | `/health`         | Liveness probe                           |
 
 ### Convert a paper
@@ -97,6 +98,14 @@ curl -X POST http://localhost:5000/api/convert \
 curl -X POST http://localhost:5000/api/search \
   -H "Content-Type: application/json" \
   -d '{"query": "attention mechanism", "top_k": 5}'
+```
+
+### GraphQL
+
+```bash
+curl -X POST http://localhost:5000/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ search(query: \"attention\", topK: 3) { text score section } }"}'
 ```
 
 ## Tests
@@ -125,7 +134,8 @@ paper2agent/
 │   ├── parsers/
 │   │   └── paper_parser.py  # arXiv / GitHub / file parsers
 │   └── api/
-│       └── routes.py        # REST endpoints
+│       ├── routes.py        # REST endpoints
+│       └── graphql_schema.py # GraphQL schema & resolvers
 ├── templates/
 │   └── index.html           # Web interface
 └── tests/

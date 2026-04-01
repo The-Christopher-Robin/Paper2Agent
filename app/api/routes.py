@@ -14,7 +14,9 @@ import logging
 
 from flask import Blueprint, jsonify, render_template, request
 
+from ariadne import graphql_sync
 from app.agent.orchestrator import AgentOrchestrator
+from app.api.graphql_schema import schema
 from app.retrieval.rag import RAGRetriever
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,15 @@ def index_document():
 
     doc_id = _get_rag().add_document(text, metadata=metadata)
     return jsonify({"doc_id": doc_id, "status": "indexed"})
+
+
+# ── GraphQL ──────────────────────────────────────────────────────────
+
+@api_bp.route("/graphql", methods=["POST"])
+def graphql_endpoint():
+    data = request.get_json(force=True)
+    success, result = graphql_sync(schema, data, context_value=request)
+    return jsonify(result), 200 if success else 400
 
 
 # ── Health ───────────────────────────────────────────────────────────
