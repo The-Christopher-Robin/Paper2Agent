@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  paper2agent:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - FLASK_DEBUG=${FLASK_DEBUG:-false}
+      - MAX_TOOL_CALLS=${MAX_TOOL_CALLS:-10}
+    volumes:
+      - paper2agent_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  paper2agent_data:
