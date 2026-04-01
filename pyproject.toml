@@ -1,0 +1,19 @@
+[project]
+name = "paper2agent"
+version = "0.1.0"
+description = "Agent-based LLM copilot that converts research papers into executable workflow guidance"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Chris Biju", email = "chrisb10@uw.edu"}]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
