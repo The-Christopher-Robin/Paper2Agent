@@ -1,0 +1,6 @@
+flask>=3.0
+openai>=1.0
+numpy>=1.24
+faiss-cpu>=1.7
+requests>=2.31
+gunicorn>=21.2
