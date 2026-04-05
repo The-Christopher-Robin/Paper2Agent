@@ -12,3 +12,6 @@ class Config:
     FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
     FLASK_PORT = int(os.getenv("FLASK_PORT", "5000"))
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    DATABASE_URL = os.getenv(
+        "DATABASE_URL", "sqlite:///paper2agent.db"
+    )

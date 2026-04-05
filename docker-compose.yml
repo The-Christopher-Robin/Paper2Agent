@@ -11,14 +11,35 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
       - FLASK_DEBUG=${FLASK_DEBUG:-false}
       - MAX_TOOL_CALLS=${MAX_TOOL_CALLS:-10}
+      - DATABASE_URL=postgresql://paper2agent:paper2agent@db:5432/paper2agent
     volumes:
       - paper2agent_data:/app/data
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
 
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: paper2agent
+      POSTGRES_USER: paper2agent
+      POSTGRES_PASSWORD: paper2agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paper2agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   paper2agent_data:
+  pgdata:

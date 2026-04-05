@@ -13,16 +13,21 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Lazy singletons so we don't import heavy modules at startup.
-_rag = None
+# ── Shared RAG singleton ─────────────────────────────────────────────
+
+_shared_rag = None
 
 
-def _get_rag():
-    global _rag
-    if _rag is None:
+def get_shared_rag():
+    """Return the module-level RAGRetriever singleton.
+
+    All modules should call this instead of creating their own instance.
+    """
+    global _shared_rag
+    if _shared_rag is None:
         from app.retrieval.rag import RAGRetriever
-        _rag = RAGRetriever()
-    return _rag
+        _shared_rag = RAGRetriever()
+    return _shared_rag
 
 
 # ── OpenAI function-calling schemas ──────────────────────────────────
@@ -212,7 +217,7 @@ def _handle_parse_paper(source: str) -> dict:
     parser = PaperParser()
     result = parser.parse(source)
 
-    rag = _get_rag()
+    rag = get_shared_rag()
     for section, content in result.get("sections", {}).items():
         if content:
             rag.add_document(content,
@@ -229,7 +234,7 @@ def _handle_parse_paper(source: str) -> dict:
 
 @_register("retrieve_context")
 def _handle_retrieve_context(query: str, top_k: int = 5) -> dict:
-    results = _get_rag().search(query, top_k=top_k)
+    results = get_shared_rag().search(query, top_k=top_k)
     return {
         "results": results,
         "count": len(results),
@@ -240,12 +245,67 @@ def _handle_retrieve_context(query: str, top_k: int = 5) -> dict:
 @_register("generate_code")
 def _handle_generate_code(description: str, context: str = "",
                            language: str = "python") -> dict:
+    """Generate code using LLM, falling back to description echo."""
+    code = _llm_generate_code(description, context, language)
     return {
-        "description": description,
+        "code": code,
         "language": language,
+        "description": description,
         "context_provided": bool(context),
-        "summary": f"Code generation request ({language}): {description[:80]}",
+        "summary": f"Generated {language} code for: {description[:80]}",
     }
+
+
+def _llm_generate_code(description: str, context: str, language: str) -> str:
+    """Call LLM to actually generate code."""
+    try:
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import HumanMessage, SystemMessage
+        from config import Config as _Cfg
+
+        llm = ChatOpenAI(model=_Cfg.OPENAI_MODEL, api_key=_Cfg.OPENAI_API_KEY, temperature=0.1)
+        messages = [
+            SystemMessage(content=(
+                f"You are an expert {language} programmer. Generate clean, "
+                f"well-documented, executable {language} code based on the user's "
+                "description. Include imports, error handling, and type hints. "
+                "Return ONLY the code, no explanations."
+            )),
+            HumanMessage(content=(
+                f"Description: {description}\n\n"
+                f"Context: {context or 'None provided'}"
+            )),
+        ]
+        resp = llm.invoke(messages)
+        return resp.content
+    except ImportError:
+        pass
+
+    try:
+        from openai import OpenAI
+        from config import Config as _Cfg
+
+        client = OpenAI(api_key=_Cfg.OPENAI_API_KEY)
+        resp = client.chat.completions.create(
+            model=_Cfg.OPENAI_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are an expert {language} programmer. Generate clean, "
+                        f"executable {language} code. Return ONLY code."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Description: {description}\nContext: {context or 'None'}",
+                },
+            ],
+        )
+        return resp.choices[0].message.content
+    except Exception as exc:
+        logger.warning("Code generation LLM call failed: %s", exc)
+        return f"# Code generation placeholder\n# Task: {description}\n# Language: {language}"
 
 
 @_register("validate_code")
@@ -294,7 +354,7 @@ def _handle_validate_code(code: str, expected_behavior: str = "") -> dict:
 
 @_register("index_document")
 def _handle_index_document(text: str, metadata: dict | None = None) -> dict:
-    doc_id = _get_rag().add_document(text, metadata=metadata or {})
+    doc_id = get_shared_rag().add_document(text, metadata=metadata or {})
     return {
         "doc_id": doc_id,
         "indexed_chars": len(text),

@@ -11,11 +11,12 @@ from ariadne import (
     make_executable_schema,
 )
 
-from app.retrieval.rag import RAGRetriever
+from app.agent.tools import get_shared_rag
 
 type_defs = """
     type Query {
         workflows: [Workflow!]!
+        workflow(id: String!): WorkflowDetail
         search(query: String!, topK: Int = 5): [SearchResult!]!
         health: HealthStatus!
     }
@@ -29,6 +30,35 @@ type_defs = """
         docId: String!
         source: String
         chunks: Int!
+        status: String
+        createdAt: String
+    }
+
+    type WorkflowDetail {
+        id: String!
+        sourceType: String
+        sourceRef: String
+        summary: String
+        status: String
+        createdAt: String
+        updatedAt: String
+        steps: [PipelineStep!]!
+        traces: [AgentTraceType!]!
+    }
+
+    type PipelineStep {
+        id: String!
+        agentRole: String!
+        outputText: String
+        stepOrder: Int!
+        durationMs: Int
+    }
+
+    type AgentTraceType {
+        id: String!
+        agentRole: String!
+        eventType: String!
+        timestamp: String
     }
 
     type SearchResult {
@@ -65,35 +95,87 @@ type_defs = """
 query = QueryType()
 mutation = MutationType()
 
-_rag = None
-
-
-def _get_rag() -> RAGRetriever:
-    global _rag
-    if _rag is None:
-        _rag = RAGRetriever()
-    return _rag
-
 
 @query.field("workflows")
 def resolve_workflows(*_):
-    rag = _get_rag()
-    grouped: dict[str, dict] = {}
-    for doc in rag.documents:
-        did = doc.get("doc_id", "unknown")
-        if did not in grouped:
-            grouped[did] = {
-                "docId": did,
-                "source": doc.get("metadata", {}).get("source", ""),
-                "chunks": 0,
+    try:
+        from app.db import get_db
+        from app.models import Workflow
+
+        with get_db() as session:
+            workflows = session.query(Workflow).order_by(
+                Workflow.created_at.desc()
+            ).all()
+            return [
+                {
+                    "docId": w.id,
+                    "source": w.source_ref,
+                    "chunks": len(w.steps),
+                    "status": w.status,
+                    "createdAt": w.created_at.isoformat() if w.created_at else None,
+                }
+                for w in workflows
+            ]
+    except Exception:
+        rag = get_shared_rag()
+        grouped: dict[str, dict] = {}
+        for doc in rag.documents:
+            did = doc.get("doc_id", "unknown")
+            if did not in grouped:
+                grouped[did] = {
+                    "docId": did,
+                    "source": doc.get("metadata", {}).get("source", ""),
+                    "chunks": 0,
+                }
+            grouped[did]["chunks"] += 1
+        return list(grouped.values())
+
+
+@query.field("workflow")
+def resolve_workflow(*_, id: str):
+    try:
+        from app.db import get_db
+        from app.models import Workflow
+
+        with get_db() as session:
+            w = session.query(Workflow).filter_by(id=id).first()
+            if w is None:
+                return None
+            return {
+                "id": w.id,
+                "sourceType": w.source_type,
+                "sourceRef": w.source_ref,
+                "summary": w.summary,
+                "status": w.status,
+                "createdAt": w.created_at.isoformat() if w.created_at else None,
+                "updatedAt": w.updated_at.isoformat() if w.updated_at else None,
+                "steps": [
+                    {
+                        "id": s.id,
+                        "agentRole": s.agent_role,
+                        "outputText": s.output_text,
+                        "stepOrder": s.step_order,
+                        "durationMs": s.duration_ms,
+                    }
+                    for s in w.steps
+                ],
+                "traces": [
+                    {
+                        "id": t.id,
+                        "agentRole": t.agent_role,
+                        "eventType": t.event_type,
+                        "timestamp": t.timestamp.isoformat() if t.timestamp else None,
+                    }
+                    for t in w.traces
+                ],
             }
-        grouped[did]["chunks"] += 1
-    return list(grouped.values())
+    except Exception:
+        return None
 
 
 @query.field("search")
 def resolve_search(*_, query: str, topK: int = 5):
-    results = _get_rag().search(query, top_k=topK)
+    results = get_shared_rag().search(query, top_k=topK)
     return [
         {
             "text": r["text"],
@@ -121,8 +203,8 @@ def resolve_convert_paper(*_, source: str, query: str = ""):
         "toolCallsMade": result.get("tool_calls_made", 0),
         "steps": [
             {
-                "step": s["step"],
-                "tool": s["tool"],
+                "step": s.get("step", 0),
+                "tool": s.get("tool", ""),
                 "resultSummary": s.get("result_summary", ""),
             }
             for s in result.get("steps", [])
@@ -133,7 +215,7 @@ def resolve_convert_paper(*_, source: str, query: str = ""):
 
 @mutation.field("indexDocument")
 def resolve_index_document(*_, text: str, source: str = ""):
-    doc_id = _get_rag().add_document(text, metadata={"source": source})
+    doc_id = get_shared_rag().add_document(text, metadata={"source": source})
     return {"docId": doc_id, "status": "indexed"}
 
 
