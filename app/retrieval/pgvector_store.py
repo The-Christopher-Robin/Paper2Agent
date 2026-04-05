@@ -119,7 +119,7 @@ class PgVectorStore:
 
         with self._engine.connect() as conn:
             rows = conn.execute(
-                text(f"""
+                text("""
                     SELECT doc_id, chunk_index, content, metadata,
                            1 - (embedding <=> :vec::vector) AS score
                     FROM pgvector_docs

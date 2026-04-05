@@ -17,8 +17,8 @@ from typing import Any
 
 from openai import OpenAI
 
-from app.agent.tools import TOOL_DEFINITIONS, execute_tool
 from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.tools import TOOL_DEFINITIONS, execute_tool
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class AgentOrchestrator:
 
         self._multi_agent = False
         try:
-            from app.agent.agents import is_langchain_available, build_all_agents
+            from app.agent.agents import build_all_agents, is_langchain_available
             if is_langchain_available():
                 self._agents = build_all_agents(self.model)
                 self._multi_agent = True
@@ -106,7 +106,7 @@ class AgentOrchestrator:
         db_workflow = None
         try:
             from app.db import get_db
-            from app.models import Workflow, WorkflowStep, AgentTrace
+            from app.models import AgentTrace, Workflow, WorkflowStep
             with get_db() as session:
                 db_workflow = Workflow(
                     source_type="paper",

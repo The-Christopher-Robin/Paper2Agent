@@ -1,20 +1,19 @@
 """SQLAlchemy models for workflow persistence, agent traces, and documents."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
     Text,
 )
-from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.orm import relationship
-import json
+from sqlalchemy.types import TEXT, TypeDecorator
 
 from app.db import Base
 

@@ -6,8 +6,8 @@ search, and mutations for paper conversion and document indexing.
 """
 
 from ariadne import (
-    QueryType,
     MutationType,
+    QueryType,
     make_executable_schema,
 )
 

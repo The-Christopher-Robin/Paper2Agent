@@ -1,6 +1,5 @@
 """Smoke tests for the Paper2Agent API and components."""
 
-import json
 import pytest
 
 from app import create_app

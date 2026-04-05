@@ -4,7 +4,6 @@ Each tool follows the OpenAI function-calling schema and has a matching
 handler that performs the actual work (parsing, retrieval, code gen, etc.).
 """
 
-import json
 import logging
 import subprocess
 import tempfile
@@ -259,8 +258,9 @@ def _handle_generate_code(description: str, context: str = "",
 def _llm_generate_code(description: str, context: str, language: str) -> str:
     """Call LLM to actually generate code."""
     try:
-        from langchain_openai import ChatOpenAI
         from langchain_core.messages import HumanMessage, SystemMessage
+        from langchain_openai import ChatOpenAI
+
         from config import Config as _Cfg
 
         llm = ChatOpenAI(model=_Cfg.OPENAI_MODEL, api_key=_Cfg.OPENAI_API_KEY, temperature=0.1)
@@ -283,6 +283,7 @@ def _llm_generate_code(description: str, context: str, language: str) -> str:
 
     try:
         from openai import OpenAI
+
         from config import Config as _Cfg
 
         client = OpenAI(api_key=_Cfg.OPENAI_API_KEY)

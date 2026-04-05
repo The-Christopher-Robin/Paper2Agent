@@ -15,9 +15,9 @@ GET  /health        Liveness probe
 
 import logging
 
+from ariadne import graphql_sync
 from flask import Blueprint, jsonify, render_template, request
 
-from ariadne import graphql_sync
 from app.agent.orchestrator import AgentOrchestrator
 from app.agent.tools import get_shared_rag
 from app.api.graphql_schema import schema

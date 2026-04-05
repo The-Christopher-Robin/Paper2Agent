@@ -13,8 +13,8 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 try:
-    from langchain_openai import ChatOpenAI
     from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
     _HAS_LANGCHAIN = True
 except ImportError:
     _HAS_LANGCHAIN = False
